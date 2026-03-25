@@ -1,0 +1,27 @@
+{
+  "name": "up09-express-lab-ulishchenko",
+  "version": "1.0.0",
+  "description": "- Создать REST API для управления библиотекой книг. - Пользователи могут регистрироваться, авторизовываться, просматривать книги, а авторизованные — добавлять отзывы и управлять своими записями. - Администратор имеет право управлять всеми книгами и пользователями. - Необходимо внутри репозитория создать Bruno коллекцию, которая будет описывать эндпоинты вашего REST API сервера",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/32ISR/up09-express-lab-Ulishchenko.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/32ISR/up09-express-lab-Ulishchenko/issues"
+  },
+  "homepage": "https://github.com/32ISR/up09-express-lab-Ulishchenko#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.8.0",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
+  }
+}
