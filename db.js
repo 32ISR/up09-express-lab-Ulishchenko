@@ -1,5 +1,4 @@
 const Database = require('better-sqlite3');
-const bcrypt = require('bcryptjs');
 const db = new Database("./database.db");
 
 // Включаем поддержку внешних ключей
