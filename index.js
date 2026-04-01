@@ -14,17 +14,13 @@ const SECRET = "Zemfira"
 //Мидл ВАРКА
 const auth = (req, res, next) => {
     const authHeader = req.headers.authorization;
-
     if (!authHeader) {
         return res.status(401).json({ message: "Failed to provide token" });
     }
-
     const token = authHeader.split(" ")[1];
-
     if (!token) {
         return res.status(401).json({ message: "Token has invalid form" });
     }
-
     try {
         const decoded = jwt.verify(token, SECRET);
         const user = db
@@ -34,10 +30,8 @@ const auth = (req, res, next) => {
         if (!user) {
             return res.status(401).json({ message: "Invalid token" });
         }
-
         req.user = user;
         next();
-
     } catch (err) {
         return res.status(403).json({ message: "Missing data" });
     }
@@ -60,36 +54,33 @@ function checkRole(...allowedRoles) {
 // Зарегаемся 
 app.post("/api/auth/register", (req, res) => {
     try {
-        const { username, email, password } = req.body;
-
+        const { username, email, password, role } = req.body;
         if (!username || !email || !password) {
             return res.status(400).json({ error: "Not all data" });
         }
-        const existing = db
-            .prepare("SELECT id FROM users WHERE email = ? OR username = ?")
-            .get(email, username);
+        const existingEmail = db
+            .prepare("SELECT id FROM users WHERE email = ?")
+            .get(email);
+        const existingUsername = db
+            .prepare("SELECT id FROM users WHERE username = ?")
+            .get(username);
 
-        if (existing) {
+        if (existingEmail || existingUsername) {
             return res.status(409).json({ error: "User already exists" });
         }
-        const oxymiron = bcrypt.genSaltSync(10);
-        const hash = bcrypt.hashSync(password, oxymiron);
-
-        const role = "user";
+        const salt = bcrypt.genSaltSync(10);
+        const hash = bcrypt.hashSync(password, salt);
+        const userRole = role === "admin" ? "admin" : "user";
         const info = db.prepare(`
             INSERT INTO users (username, email, password, role)
             VALUES (?, ?, ?, ?)
-        `).run(username, email, hash, role);
-
+        `).run(username, email, hash, userRole);
         const user = db
-            .prepare("SELECT * FROM users WHERE id = ?")
+            .prepare("SELECT id, username, email, role, createdAt FROM users WHERE id = ?")
             .get(info.lastInsertRowid);
 
-        const { password: _, ...safeUser } = user;
-        const token = jwt.sign({ ...safeUser }, SECRET, { expiresIn: "24h" });
-
-        return res.status(201).json({ token, user: safeUser });
-
+        const token = jwt.sign({ ...user }, SECRET, { expiresIn: "24h" });
+        return res.status(201).json({ token, user });
     } catch (err) {
         console.error(err);
         return res.status(500).json({ error: "Mistake" });
@@ -106,7 +97,6 @@ app.post("/api/auth/login", (req, res) => {
         const user = db
             .prepare("SELECT * FROM users WHERE email = ?")
             .get(email);
-
         if (!user) {
             return res.status(401).json({ error: "Invalid" });
         }
@@ -115,7 +105,6 @@ app.post("/api/auth/login", (req, res) => {
         if (!valid) {
             return res.status(401).json({ error: "Invalid" });
         }
-
         const { password: _, ...safeUser } = user;
         const token = jwt.sign({ ...safeUser }, SECRET, { expiresIn: "24h" });
 
@@ -125,11 +114,19 @@ app.post("/api/auth/login", (req, res) => {
         return res.status(500).json({ error: "Unexpected error" });
     }
 });
-
-app.get("/api/auth/profile", (req, res) => {
-    return res.status(200).json(req)
-});
-
+// Получить данные текущего пользователя
+app.get("/api/auth/profile", auth, (req, res) => {
+    try {
+        const user = db.prepare(
+            "SELECT * FROM users WHERE id = ?"
+        ).get(req.user.id)
+        const { password, ...safeUser } = user
+        return res.status(200).json(safeUser)
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({ error: "Something wrong" })
+    }
+})
 // все книги 
 app.get("/api/books", (req, res) => {
     try {
@@ -159,7 +156,6 @@ app.get("/api/books", (req, res) => {
 app.get("/api/books/:id", (req, res) => {
     try {
         const { id } = req.params;
-
         const book = db.prepare(` SELECT books.*, users.username AS added_by FROM books JOIN users ON books.createdBy = users.id WHERE books.id = ? `).get(id);
 
         if (!book) {
@@ -195,7 +191,26 @@ app.post("/api/books", auth, (req, res) => {
     }
 });
 
+app.put("/api/books/:id", auth, (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, author, year, genre, description } = req.body;
+        const book = db.prepare("SELECT * FROM books WHERE id = ?").get(id);
 
+        if (!book) {
+            return res.status(404).json({ error: "Book not found" });
+        }
+        if (req.user.role !== "admin" && book.createdBy !== req.user.id) {
+            return res.status(403).json({ error: "Not allowed" });
+        }
+        db.prepare(`
+            UPDATE books SET title = ?, author = ?, year = ?, genre = ?, description = ? WHERE id = ? `).run(title, author, year, genre, description, id);
+
+        return res.json({ message: "Updated successfully" });
+    } catch (err) {
+        return res.status(500).json({ error: "Failed" });
+    }
+});
 // стираем из памяти
 app.delete("/api/books/:id", auth, (req, res) => {
     try {
@@ -215,26 +230,65 @@ app.delete("/api/books/:id", auth, (req, res) => {
         return res.status(500).json({ error: "Failed to delete" });
     }
 });
-
-// добавить отзыв
 app.post("/api/books/:id/reviews", auth, (req, res) => {
     try {
         const { id } = req.params;
         const { rating, comment } = req.body;
 
-        if (!rating) {
-            return res.status(400).json({ error: "Rating required" });
+        const book = db
+            .prepare("SELECT * FROM books WHERE id = ?")
+            .get(id);
+        if (!book) {
+            return res.status(404).json({ error: "Book not found" });
         }
-
-        db.prepare(` INSERT INTO reviews (bookId, userId, rating, comment) VALUES (?, ?, ?, ?) `).run(id, req.user.id, rating, comment);
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({ error: "Rating must be between 1 and 5" });
+        }
+        const existingReview = db
+            .prepare("SELECT * FROM reviews WHERE bookId = ? AND userId = ?")
+            .get(id, req.user.id);
+        if (existingReview) {
+            return res.status(400).json({ error: "You already reviewed this book" });
+        }
+        db.prepare(`
+            INSERT INTO reviews (bookId, userId, rating, comment)
+            VALUES (?, ?, ?, ?)
+        `).run(id, req.user.id, rating, comment);
         return res.status(201).json({ message: "Review created" });
     } catch (err) {
         console.error(err);
         return res.status(500).json({ error: "Failed" });
     }
 });
+// Получить все отзывы к книге
+app.get("/api/books/:id/reviews", (req, res) => {
+     try {
+        const { id } = req.params;
+        const reviews = db.prepare(` SELECT reviews.*, users.username FROM reviews JOIN users ON reviews.userId = users.id WHERE reviews.bookId = ? `).all(id);
+        return res.json(reviews);
+        } catch (err) {
+        return res.status(500).json({ error: "Failed" });
+    }   
+});   
 
-// Тетрадь позитива
+app.delete("/api/reviews/:id", auth, (req, res) => {
+    try {
+        const { id } = req.params;
+        const review = db.prepare("SELECT * FROM reviews WHERE id = ?").get(id);
+        if (!review) {
+            return res.status(404).json({ error: "Review not found" });
+        }
+        if (req.user.role !== "admin" && review.userId !== req.user.id) {
+            return res.status(403).json({ error: "Not allowed" });
+        }
+        db.prepare("DELETE FROM reviews WHERE id = ?").run(id);
+        return res.json({ message: "Deleted" });
+    } catch (err) {
+        return res.status(500).json({ error: "Failed" });
+    }
+});
+
+// Тетрадь позитива (все п)
 app.get("/api/admin/users", auth, (req, res) => {
     try {
         if (req.user.role !== "admin") {
@@ -242,10 +296,22 @@ app.get("/api/admin/users", auth, (req, res) => {
         }
         const users = db.prepare("SELECT id, username, email, role FROM users").all();
         return res.status(200).json(users);
-
     } catch (err) {
         console.error(err);
         return res.status(500).json({ error: "Failed to fetch users" });
+    }
+});
+
+app.delete("/api/admin/users/:id", auth, (req, res) => {
+    try {
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ error: "Not allowed" });
+        }
+        const { id } = req.params;
+        db.prepare("DELETE FROM users WHERE id = ?").run(id);
+        return res.json({ message: "User deleted" });
+    } catch (err) {
+        return res.status(500).json({ error: "Failed" });
     }
 });
 
