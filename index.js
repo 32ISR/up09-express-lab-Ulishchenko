@@ -1,6 +1,6 @@
 const express = require("express")
 const db = require("./db")
-const bcr = require("bcryptjs")
+const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const cors = require("cors")
 const app = express()
@@ -126,6 +126,9 @@ app.post("/api/auth/login", (req, res) => {
     }
 });
 
+app.get("/api/auth/profile", (req, res) => {
+    return res.status(200).json(req)
+});
 
 // все книги 
 app.get("/api/books", (req, res) => {
