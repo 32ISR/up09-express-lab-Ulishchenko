@@ -1,0 +1,30 @@
+meta {
+  name: api/books/:id
+  type: http
+  seq: 7
+}
+
+put {
+  url: https://fictional-journey-wrgv7pjj6gr5c96pj-3000.app.github.dev/api/books/:id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  id: 7
+}
+
+body:json {
+  {
+    "title": "Тест",
+    "author": "Тестик",
+    "year": 2024,
+    "genre": "ТЕЕЕСТ",
+    "description": "Тест"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

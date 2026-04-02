@@ -1,0 +1,26 @@
+meta {
+  name: api/books
+  type: http
+  seq: 6
+}
+
+post {
+  url: https://fictional-journey-wrgv7pjj6gr5c96pj-3000.app.github.dev/api/books
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "Удалю",
+    "author": "Удалюеё",
+    "year": 2016,
+    "genre": "хип-хоп/рэп",
+    "description": "А вы слышали Паша Техник умер"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
