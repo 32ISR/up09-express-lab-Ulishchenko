@@ -1,0 +1,20 @@
+meta {
+  name: books/:id
+  type: http
+  seq: 5
+}
+
+get {
+  url: https://fictional-journey-wrgv7pjj6gr5c96pj-3000.app.github.dev/api/books/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: 1
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

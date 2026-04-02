@@ -1,0 +1,27 @@
+meta {
+  name: reviews
+  type: http
+  seq: 9
+}
+
+post {
+  url: https://fictional-journey-wrgv7pjj6gr5c96pj-3000.app.github.dev/api/books/:id/reviews
+  body: json
+  auth: inherit
+}
+
+params:path {
+  id: 4
+}
+
+body:json {
+  {
+    "rating": 3,
+    "comment": "Тестик"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

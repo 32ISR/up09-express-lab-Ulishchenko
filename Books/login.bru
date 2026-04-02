@@ -1,0 +1,23 @@
+meta {
+  name: login
+  type: http
+  seq: 2
+}
+
+post {
+  url: https://fictional-journey-wrgv7pjj6gr5c96pj-3000.app.github.dev/api/auth/login
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+      "email": "admine12345@gmail.com",
+      "password": "qwerty123"
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
